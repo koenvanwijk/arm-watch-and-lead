@@ -2,7 +2,8 @@ import { useState } from "react";
 import { VideoStream } from "@/components/VideoStream";
 import { ControlPanel } from "@/components/ControlPanel";
 import { Button } from "@/components/ui/button";
-import { Grid3x3, Maximize2 } from "lucide-react";
+import { Grid3x3 } from "lucide-react";
+import { toast } from "sonner";
 
 type Status = "operational" | "attention" | "critical";
 
@@ -23,16 +24,31 @@ const mockArms: RobotArm[] = [
 
 const Index = () => {
   const [focusedArm, setFocusedArm] = useState<string | null>(null);
+  const [arms, setArms] = useState<RobotArm[]>(mockArms);
 
   const handleArmClick = (armId: string) => {
     setFocusedArm(focusedArm === armId ? null : armId);
   };
 
-  const needsAttention = mockArms.filter(
+  const handleStatusReset = (armId: string) => {
+    setArms(arms.map(arm => 
+      arm.id === armId ? { ...arm, status: "operational" } : arm
+    ));
+    toast.success(`${arms.find(a => a.id === armId)?.name} marked as operational`);
+  };
+
+  const handleEmergencyStop = (armId: string) => {
+    const arm = arms.find(a => a.id === armId);
+    toast.error(`Emergency stop activated for ${arm?.name}`, {
+      description: "All operations halted. Manual restart required.",
+    });
+  };
+
+  const needsAttention = arms.filter(
     (arm) => arm.status === "attention" || arm.status === "critical"
   );
 
-  const focusedArmData = mockArms.find((arm) => arm.id === focusedArm);
+  const focusedArmData = arms.find((arm) => arm.id === focusedArm);
 
   return (
     <div className="min-h-screen bg-background">
@@ -88,12 +104,14 @@ const Index = () => {
                   status={focusedArmData!.status}
                   isFocused={true}
                   onClick={() => {}}
+                  onStatusReset={() => handleStatusReset(focusedArmData!.id)}
+                  onEmergencyStop={() => handleEmergencyStop(focusedArmData!.id)}
                 />
               </div>
 
               {/* Thumbnail grid */}
               <div className="grid grid-cols-2 lg:grid-cols-1 gap-4">
-                {mockArms
+                {arms
                   .filter((arm) => arm.id !== focusedArm)
                   .slice(0, 4)
                   .map((arm) => (
@@ -104,6 +122,8 @@ const Index = () => {
                       status={arm.status}
                       isFocused={false}
                       onClick={() => handleArmClick(arm.id)}
+                      onStatusReset={() => handleStatusReset(arm.id)}
+                      onEmergencyStop={() => handleEmergencyStop(arm.id)}
                     />
                   ))}
               </div>
@@ -115,7 +135,7 @@ const Index = () => {
         ) : (
           /* Grid View */
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-            {mockArms.map((arm) => (
+            {arms.map((arm) => (
               <VideoStream
                 key={arm.id}
                 id={arm.id}
@@ -123,6 +143,8 @@ const Index = () => {
                 status={arm.status}
                 isFocused={false}
                 onClick={() => handleArmClick(arm.id)}
+                onStatusReset={() => handleStatusReset(arm.id)}
+                onEmergencyStop={() => handleEmergencyStop(arm.id)}
               />
             ))}
           </div>

@@ -13,6 +13,8 @@ export const ControlPanel = ({ armName }: ControlPanelProps) => {
   const [joint1, setJoint1] = useState([50]);
   const [joint2, setJoint2] = useState([50]);
   const [joint3, setJoint3] = useState([50]);
+  const [joint4, setJoint4] = useState([50]);
+  const [joint5, setJoint5] = useState([50]);
   const [gripper, setGripper] = useState([50]);
 
   return (
@@ -29,10 +31,10 @@ export const ControlPanel = ({ armName }: ControlPanelProps) => {
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {/* Joint Controls */}
-        <div className="space-y-6">
+        <div className="space-y-4">
           <div>
             <div className="flex items-center justify-between mb-2">
-              <label className="text-sm font-medium text-foreground">Joint 1</label>
+              <label className="text-sm font-medium text-foreground">Joint 1 (Base)</label>
               <span className="text-xs text-muted-foreground">{joint1[0]}°</span>
             </div>
             <Slider
@@ -46,7 +48,7 @@ export const ControlPanel = ({ armName }: ControlPanelProps) => {
 
           <div>
             <div className="flex items-center justify-between mb-2">
-              <label className="text-sm font-medium text-foreground">Joint 2</label>
+              <label className="text-sm font-medium text-foreground">Joint 2 (Shoulder)</label>
               <span className="text-xs text-muted-foreground">{joint2[0]}°</span>
             </div>
             <Slider
@@ -60,12 +62,40 @@ export const ControlPanel = ({ armName }: ControlPanelProps) => {
 
           <div>
             <div className="flex items-center justify-between mb-2">
-              <label className="text-sm font-medium text-foreground">Joint 3</label>
+              <label className="text-sm font-medium text-foreground">Joint 3 (Elbow)</label>
               <span className="text-xs text-muted-foreground">{joint3[0]}°</span>
             </div>
             <Slider
               value={joint3}
               onValueChange={setJoint3}
+              max={180}
+              step={1}
+              className="w-full"
+            />
+          </div>
+
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <label className="text-sm font-medium text-foreground">Joint 4 (Wrist Pitch)</label>
+              <span className="text-xs text-muted-foreground">{joint4[0]}°</span>
+            </div>
+            <Slider
+              value={joint4}
+              onValueChange={setJoint4}
+              max={180}
+              step={1}
+              className="w-full"
+            />
+          </div>
+
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <label className="text-sm font-medium text-foreground">Joint 5 (Wrist Roll)</label>
+              <span className="text-xs text-muted-foreground">{joint5[0]}°</span>
+            </div>
+            <Slider
+              value={joint5}
+              onValueChange={setJoint5}
               max={180}
               step={1}
               className="w-full"

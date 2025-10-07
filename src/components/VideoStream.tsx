@@ -1,6 +1,13 @@
 import { useEffect, useRef, useState } from "react";
 import { Badge } from "@/components/ui/badge";
-import { AlertCircle, CheckCircle, XCircle } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { AlertCircle, CheckCircle, XCircle, Power, Check } from "lucide-react";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 type Status = "operational" | "attention" | "critical";
 
@@ -10,6 +17,8 @@ interface VideoStreamProps {
   status: Status;
   isFocused: boolean;
   onClick: () => void;
+  onStatusReset: () => void;
+  onEmergencyStop: () => void;
 }
 
 const statusConfig = {
@@ -30,12 +39,28 @@ const statusConfig = {
   },
 };
 
-export const VideoStream = ({ id, name, status, isFocused, onClick }: VideoStreamProps) => {
+export const VideoStream = ({ 
+  id, 
+  name, 
+  status, 
+  isFocused, 
+  onClick, 
+  onStatusReset,
+  onEmergencyStop 
+}: VideoStreamProps) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [isHovered, setIsHovered] = useState(false);
   
   const config = statusConfig[status];
   const StatusIcon = config.icon;
+
+  // Mock status data
+  const statusInfo = {
+    latency: Math.floor(Math.random() * 30) + 15,
+    battery: Math.floor(Math.random() * 30) + 70,
+    temperature: Math.floor(Math.random() * 15) + 38,
+    connection: "Stable"
+  };
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -121,52 +146,122 @@ export const VideoStream = ({ id, name, status, isFocused, onClick }: VideoStrea
   }, [status]);
 
   return (
-    <div
-      className={`relative group cursor-pointer transition-all duration-300 ${
-        isFocused ? "ring-2 ring-primary shadow-[var(--shadow-glow)]" : ""
-      }`}
-      onClick={onClick}
-      onMouseEnter={() => setIsHovered(true)}
-      onMouseLeave={() => setIsHovered(false)}
-    >
-      <div className="relative w-full aspect-video bg-card rounded-lg overflow-hidden border border-border">
-        <canvas
-          ref={canvasRef}
-          width={640}
-          height={360}
-          className="w-full h-full object-cover"
-        />
-        
-        {/* Overlay gradient */}
-        <div className="absolute inset-0 bg-gradient-to-t from-background/80 via-transparent to-transparent pointer-events-none" />
-        
-        {/* Info overlay */}
-        <div className="absolute inset-0 p-4 flex flex-col justify-between pointer-events-none">
-          <div className="flex items-start justify-between">
-            <Badge className={config.className}>
-              <StatusIcon className="w-3 h-3 mr-1" />
-              {config.label}
-            </Badge>
-            {isFocused && (
-              <Badge variant="secondary" className="bg-primary text-primary-foreground border-0">
-                FOCUSED
-              </Badge>
-            )}
-          </div>
+    <TooltipProvider>
+      <div
+        className={`relative group transition-all duration-300 ${
+          isFocused ? "ring-2 ring-primary shadow-[var(--shadow-glow)]" : ""
+        }`}
+        onMouseEnter={() => setIsHovered(true)}
+        onMouseLeave={() => setIsHovered(false)}
+      >
+        <div className="relative w-full aspect-video bg-card rounded-lg overflow-hidden border border-border cursor-pointer" onClick={onClick}>
+          <canvas
+            ref={canvasRef}
+            width={640}
+            height={360}
+            className="w-full h-full object-cover"
+          />
           
-          <div>
-            <h3 className="text-lg font-semibold text-foreground">{name}</h3>
-            <p className="text-sm text-muted-foreground">Camera {id}</p>
+          {/* Overlay gradient */}
+          <div className="absolute inset-0 bg-gradient-to-t from-background/80 via-transparent to-transparent pointer-events-none" />
+          
+          {/* Info overlay */}
+          <div className="absolute inset-0 p-4 flex flex-col justify-between">
+            <div className="flex items-start justify-between gap-2 pointer-events-none">
+              <Badge className={config.className}>
+                <StatusIcon className="w-3 h-3 mr-1" />
+                {config.label}
+              </Badge>
+              {isFocused && (
+                <Badge variant="secondary" className="bg-primary text-primary-foreground border-0">
+                  FOCUSED
+                </Badge>
+              )}
+            </div>
+            
+            <div className="flex items-end justify-between pointer-events-none">
+              <div>
+                <h3 className="text-lg font-semibold text-foreground">{name}</h3>
+                <p className="text-sm text-muted-foreground">Camera {id}</p>
+              </div>
+            </div>
           </div>
+
+          {/* Hover info tooltip */}
+          {isHovered && !isFocused && (
+            <div className="absolute top-4 right-4 bg-background/95 backdrop-blur-sm border border-border rounded-lg p-3 shadow-lg pointer-events-none">
+              <div className="space-y-1 text-xs">
+                <div className="flex justify-between gap-4">
+                  <span className="text-muted-foreground">Latency:</span>
+                  <span className="text-foreground font-medium">{statusInfo.latency}ms</span>
+                </div>
+                <div className="flex justify-between gap-4">
+                  <span className="text-muted-foreground">Battery:</span>
+                  <span className="text-foreground font-medium">{statusInfo.battery}%</span>
+                </div>
+                <div className="flex justify-between gap-4">
+                  <span className="text-muted-foreground">Temp:</span>
+                  <span className="text-foreground font-medium">{statusInfo.temperature}°C</span>
+                </div>
+                <div className="flex justify-between gap-4">
+                  <span className="text-muted-foreground">Status:</span>
+                  <span className="text-[hsl(var(--status-operational))] font-medium">{statusInfo.connection}</span>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Hover effect */}
+          {isHovered && !isFocused && (
+            <div className="absolute inset-0 bg-primary/10 flex items-center justify-center pointer-events-none">
+              <span className="text-primary font-medium">Click to Focus</span>
+            </div>
+          )}
         </div>
 
-        {/* Hover effect */}
-        {isHovered && !isFocused && (
-          <div className="absolute inset-0 bg-primary/10 flex items-center justify-center">
-            <span className="text-primary font-medium">Click to Focus</span>
-          </div>
-        )}
+        {/* Action buttons - always visible */}
+        <div className="absolute bottom-4 right-4 flex gap-2 z-10">
+          {(status === "attention" || status === "critical") && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  className="pointer-events-auto bg-[hsl(var(--status-operational))] hover:bg-[hsl(var(--status-operational))]/80 text-white border-0"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onStatusReset();
+                  }}
+                >
+                  <Check className="w-4 h-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>Mark as Resolved</p>
+              </TooltipContent>
+            </Tooltip>
+          )}
+          
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                size="sm"
+                variant="destructive"
+                className="pointer-events-auto"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onEmergencyStop();
+                }}
+              >
+                <Power className="w-4 h-4" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>Emergency Stop</p>
+            </TooltipContent>
+          </Tooltip>
+        </div>
       </div>
-    </div>
+    </TooltipProvider>
   );
 };
