@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { AlertCircle, CheckCircle, XCircle, Power, Check } from "lucide-react";
+import { AlertCircle, CheckCircle, XCircle, Power, Check, Radio } from "lucide-react";
 import {
   Tooltip,
   TooltipContent,
@@ -50,6 +50,7 @@ export const VideoStream = ({
 }: VideoStreamProps) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [isHovered, setIsHovered] = useState(false);
+  const [currentTime, setCurrentTime] = useState(new Date());
   
   const config = statusConfig[status];
   const StatusIcon = config.icon;
@@ -61,6 +62,15 @@ export const VideoStream = ({
     temperature: Math.floor(Math.random() * 15) + 38,
     connection: "Stable"
   };
+
+  // Update timestamp every second to show live connection
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setCurrentTime(new Date());
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, []);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -168,10 +178,16 @@ export const VideoStream = ({
           {/* Info overlay */}
           <div className="absolute inset-0 p-4 flex flex-col justify-between">
             <div className="flex items-start justify-between gap-2 pointer-events-none">
-              <Badge className={config.className}>
-                <StatusIcon className="w-3 h-3 mr-1" />
-                {config.label}
-              </Badge>
+              <div className="flex items-center gap-2">
+                <Badge className={config.className}>
+                  <StatusIcon className="w-3 h-3 mr-1" />
+                  {config.label}
+                </Badge>
+                <Badge variant="secondary" className="bg-background/80 text-foreground border-border backdrop-blur-sm">
+                  <Radio className="w-3 h-3 mr-1 text-[hsl(var(--status-operational))] animate-pulse" />
+                  LIVE
+                </Badge>
+              </div>
               {isFocused && (
                 <Badge variant="secondary" className="bg-primary text-primary-foreground border-0">
                   FOCUSED
@@ -183,6 +199,9 @@ export const VideoStream = ({
               <div>
                 <h3 className="text-lg font-semibold text-foreground">{name}</h3>
                 <p className="text-sm text-muted-foreground">Camera {id}</p>
+              </div>
+              <div className="text-xs text-muted-foreground font-mono">
+                {currentTime.toLocaleTimeString()}
               </div>
             </div>
           </div>
