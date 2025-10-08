@@ -35,10 +35,10 @@ const Index = () => {
   const [focusedArm, setFocusedArm] = useState<string | null>(null);
   const [arms, setArms] = useState<RobotArm[]>(mockArms);
 
-  // Video URLs from HuggingFace LeRobot dataset
+  // Video URLs from local files
   const videoUrls = {
-    overview: "https://huggingface.co/datasets/koenvanwijk/orange50-variation-2/resolve/main/videos/observation.images.laptop/episode_000005.mp4",
-    gripper: "https://huggingface.co/datasets/koenvanwijk/orange50-variation-2/resolve/main/videos/observation.images.phone/episode_000005.mp4"
+    overview: "/videos/overview-camera.mp4",
+    gripper: "/videos/gripper-camera.mp4"
   };
 
   const handleArmClick = (armId: string) => {
