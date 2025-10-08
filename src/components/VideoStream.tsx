@@ -198,7 +198,7 @@ export const VideoStream = ({
             <div className="flex items-end justify-between pointer-events-none pr-24">
               <div>
                 <h3 className="text-lg font-semibold text-foreground">{name}</h3>
-                <p className="text-sm text-muted-foreground">Camera {id} • {currentTime.toLocaleTimeString()}</p>
+                <p className="text-sm text-muted-foreground">Camera {id} • {currentTime.toLocaleTimeString([], { hour12: false })}</p>
               </div>
             </div>
           </div>
