@@ -35,10 +35,20 @@ const Index = () => {
   const [focusedArm, setFocusedArm] = useState<string | null>(null);
   const [arms, setArms] = useState<RobotArm[]>(mockArms);
 
-  // Video URLs from local files
-  const videoUrls = {
-    overview: "/videos/overview-camera.mp4",
-    gripper: "/videos/gripper-camera.mp4"
+  // Map each arm to a different episode video
+  const armVideoMapping: Record<string, number> = {
+    "A1": 0,
+    "A2": 1,
+    "A3": 2,
+    "A4": 3,
+    "A5": 0,
+    "A6": 1,
+  };
+
+  const getVideoUrl = (armId: string, cameraType: CameraType) => {
+    const episode = armVideoMapping[armId] || 0;
+    const type = cameraType === "overview" ? "overview" : "gripper";
+    return `/videos/${type}-ep${episode}.mp4`;
   };
 
   const handleArmClick = (armId: string) => {
@@ -65,10 +75,10 @@ const Index = () => {
 
   const focusedArmData = arms.find((arm) => arm.id === focusedArm);
 
-  // Create camera views for each arm (overview + gripper)
+  // Create camera views for each arm (overview + gripper) with unique videos
   const cameraViews: CameraView[] = arms.flatMap((arm) => [
-    { armId: arm.id, cameraType: "overview" as CameraType, armName: arm.name, status: arm.status, videoUrl: videoUrls.overview },
-    { armId: arm.id, cameraType: "gripper" as CameraType, armName: arm.name, status: arm.status, videoUrl: videoUrls.gripper },
+    { armId: arm.id, cameraType: "overview" as CameraType, armName: arm.name, status: arm.status, videoUrl: getVideoUrl(arm.id, "overview") },
+    { armId: arm.id, cameraType: "gripper" as CameraType, armName: arm.name, status: arm.status, videoUrl: getVideoUrl(arm.id, "gripper") },
   ]);
 
   return (
