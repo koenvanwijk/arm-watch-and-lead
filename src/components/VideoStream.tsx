@@ -16,6 +16,7 @@ interface VideoStreamProps {
   id: string;
   name: string;
   cameraType: CameraType;
+  videoUrl?: string;
   status: Status;
   isFocused: boolean;
   onClick: () => void;
@@ -45,13 +46,14 @@ export const VideoStream = ({
   id, 
   name, 
   cameraType,
+  videoUrl,
   status, 
   isFocused, 
   onClick, 
   onStatusReset,
   onEmergencyStop 
 }: VideoStreamProps) => {
-  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const videoRef = useRef<HTMLVideoElement>(null);
   const [isHovered, setIsHovered] = useState(false);
   const [currentTime, setCurrentTime] = useState(new Date());
   
@@ -75,88 +77,14 @@ export const VideoStream = ({
     return () => clearInterval(interval);
   }, []);
 
+  // Auto-play video when component mounts
   useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return;
-
-    let animationId: number;
-    let frame = 0;
-
-    const drawMockFeed = () => {
-      // Mock robotic arm visualization
-      ctx.fillStyle = "hsl(220, 20%, 10%)";
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-      // Grid lines
-      ctx.strokeStyle = "hsl(189, 95%, 52%, 0.1)";
-      ctx.lineWidth = 1;
-      for (let i = 0; i < canvas.width; i += 40) {
-        ctx.beginPath();
-        ctx.moveTo(i, 0);
-        ctx.lineTo(i, canvas.height);
-        ctx.stroke();
-      }
-      for (let i = 0; i < canvas.height; i += 40) {
-        ctx.beginPath();
-        ctx.moveTo(0, i);
-        ctx.lineTo(canvas.width, i);
-        ctx.stroke();
-      }
-
-      // Mock arm visualization
-      const centerX = canvas.width / 2;
-      const centerY = canvas.height / 2;
-      const time = frame * 0.02;
-
-      // Base
-      ctx.fillStyle = "hsl(189, 95%, 52%, 0.8)";
-      ctx.beginPath();
-      ctx.arc(centerX, centerY + 80, 30, 0, Math.PI * 2);
-      ctx.fill();
-
-      // Arm segments
-      const angle1 = Math.sin(time) * 0.5;
-      const angle2 = Math.cos(time * 0.7) * 0.5;
-
-      ctx.strokeStyle = "hsl(189, 95%, 52%)";
-      ctx.lineWidth = 8;
-
-      // Segment 1
-      const x1 = centerX + Math.cos(angle1) * 60;
-      const y1 = centerY + 80 + Math.sin(angle1) * 60;
-      ctx.beginPath();
-      ctx.moveTo(centerX, centerY + 80);
-      ctx.lineTo(x1, y1);
-      ctx.stroke();
-
-      // Segment 2
-      const x2 = x1 + Math.cos(angle1 + angle2) * 50;
-      const y2 = y1 + Math.sin(angle1 + angle2) * 50;
-      ctx.beginPath();
-      ctx.moveTo(x1, y1);
-      ctx.lineTo(x2, y2);
-      ctx.stroke();
-
-      // End effector
-      ctx.fillStyle = status === "attention" ? "hsl(38, 92%, 50%)" : 
-                      status === "critical" ? "hsl(0, 85%, 60%)" : "hsl(142, 76%, 36%)";
-      ctx.beginPath();
-      ctx.arc(x2, y2, 12, 0, Math.PI * 2);
-      ctx.fill();
-
-      frame++;
-      animationId = requestAnimationFrame(drawMockFeed);
-    };
-
-    drawMockFeed();
-
-    return () => {
-      cancelAnimationFrame(animationId);
-    };
-  }, [status]);
+    if (videoRef.current && videoUrl) {
+      videoRef.current.play().catch(err => {
+        console.log("Video autoplay prevented:", err);
+      });
+    }
+  }, [videoUrl]);
 
   return (
     <TooltipProvider>
@@ -168,12 +96,20 @@ export const VideoStream = ({
         onMouseLeave={() => setIsHovered(false)}
       >
         <div className="relative w-full aspect-video bg-card rounded-lg overflow-hidden border border-border cursor-pointer" onClick={onClick}>
-          <canvas
-            ref={canvasRef}
-            width={640}
-            height={360}
-            className="w-full h-full object-cover"
-          />
+          {videoUrl ? (
+            <video
+              ref={videoRef}
+              src={videoUrl}
+              loop
+              muted
+              playsInline
+              className="w-full h-full object-cover"
+            />
+          ) : (
+            <div className="w-full h-full flex items-center justify-center bg-muted text-muted-foreground">
+              No video stream available
+            </div>
+          )}
           
           {/* Overlay gradient */}
           <div className="absolute inset-0 bg-gradient-to-t from-background/80 via-transparent to-transparent pointer-events-none" />

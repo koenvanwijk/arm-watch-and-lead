@@ -19,6 +19,7 @@ interface CameraView {
   cameraType: CameraType;
   armName: string;
   status: Status;
+  videoUrl: string;
 }
 
 const mockArms: RobotArm[] = [
@@ -33,6 +34,12 @@ const mockArms: RobotArm[] = [
 const Index = () => {
   const [focusedArm, setFocusedArm] = useState<string | null>(null);
   const [arms, setArms] = useState<RobotArm[]>(mockArms);
+
+  // Video URLs from HuggingFace LeRobot dataset
+  const videoUrls = {
+    overview: "https://huggingface.co/datasets/koenvanwijk/orange50-variation-2/resolve/main/videos/observation.images.laptop/episode_000005.mp4",
+    gripper: "https://huggingface.co/datasets/koenvanwijk/orange50-variation-2/resolve/main/videos/observation.images.phone/episode_000005.mp4"
+  };
 
   const handleArmClick = (armId: string) => {
     setFocusedArm(focusedArm === armId ? null : armId);
@@ -60,8 +67,8 @@ const Index = () => {
 
   // Create camera views for each arm (overview + gripper)
   const cameraViews: CameraView[] = arms.flatMap((arm) => [
-    { armId: arm.id, cameraType: "overview" as CameraType, armName: arm.name, status: arm.status },
-    { armId: arm.id, cameraType: "gripper" as CameraType, armName: arm.name, status: arm.status },
+    { armId: arm.id, cameraType: "overview" as CameraType, armName: arm.name, status: arm.status, videoUrl: videoUrls.overview },
+    { armId: arm.id, cameraType: "gripper" as CameraType, armName: arm.name, status: arm.status, videoUrl: videoUrls.gripper },
   ]);
 
   return (
@@ -120,6 +127,7 @@ const Index = () => {
                       id={cam.armId}
                       name={cam.armName}
                       cameraType={cam.cameraType}
+                      videoUrl={cam.videoUrl}
                       status={cam.status}
                       isFocused={true}
                       onClick={() => {}}
@@ -140,6 +148,7 @@ const Index = () => {
                       id={cam.armId}
                       name={cam.armName}
                       cameraType={cam.cameraType}
+                      videoUrl={cam.videoUrl}
                       status={cam.status}
                       isFocused={false}
                       onClick={() => handleArmClick(cam.armId)}
@@ -168,6 +177,7 @@ const Index = () => {
                         id={cam.armId}
                         name={cam.armName}
                         cameraType={cam.cameraType}
+                        videoUrl={cam.videoUrl}
                         status={cam.status}
                         isFocused={false}
                         onClick={() => handleArmClick(cam.armId)}
