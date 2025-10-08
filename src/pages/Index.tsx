@@ -6,10 +6,18 @@ import { Grid3x3 } from "lucide-react";
 import { toast } from "sonner";
 
 type Status = "operational" | "attention" | "critical";
+type CameraType = "overview" | "gripper";
 
 interface RobotArm {
   id: string;
   name: string;
+  status: Status;
+}
+
+interface CameraView {
+  armId: string;
+  cameraType: CameraType;
+  armName: string;
   status: Status;
 }
 
@@ -49,6 +57,12 @@ const Index = () => {
   );
 
   const focusedArmData = arms.find((arm) => arm.id === focusedArm);
+
+  // Create camera views for each arm (overview + gripper)
+  const cameraViews: CameraView[] = arms.flatMap((arm) => [
+    { armId: arm.id, cameraType: "overview" as CameraType, armName: arm.name, status: arm.status },
+    { armId: arm.id, cameraType: "gripper" as CameraType, armName: arm.name, status: arm.status },
+  ]);
 
   return (
     <div className="min-h-screen bg-background">
@@ -96,34 +110,41 @@ const Index = () => {
           /* Focused View */
           <div className="space-y-6">
             <div className="grid lg:grid-cols-3 gap-6">
-              {/* Large focused stream */}
-              <div className="lg:col-span-2">
-                <VideoStream
-                  id={focusedArmData!.id}
-                  name={focusedArmData!.name}
-                  status={focusedArmData!.status}
-                  isFocused={true}
-                  onClick={() => {}}
-                  onStatusReset={() => handleStatusReset(focusedArmData!.id)}
-                  onEmergencyStop={() => handleEmergencyStop(focusedArmData!.id)}
-                />
+              {/* Large focused streams - both cameras for focused arm */}
+              <div className="lg:col-span-2 space-y-4">
+                {cameraViews
+                  .filter((cam) => cam.armId === focusedArm)
+                  .map((cam) => (
+                    <VideoStream
+                      key={`${cam.armId}-${cam.cameraType}`}
+                      id={cam.armId}
+                      name={cam.armName}
+                      cameraType={cam.cameraType}
+                      status={cam.status}
+                      isFocused={true}
+                      onClick={() => {}}
+                      onStatusReset={() => handleStatusReset(cam.armId)}
+                      onEmergencyStop={() => handleEmergencyStop(cam.armId)}
+                    />
+                  ))}
               </div>
 
               {/* Thumbnail grid */}
               <div className="grid grid-cols-2 lg:grid-cols-1 gap-4">
-                {arms
-                  .filter((arm) => arm.id !== focusedArm)
+                {cameraViews
+                  .filter((cam) => cam.armId !== focusedArm && cam.cameraType === "overview")
                   .slice(0, 4)
-                  .map((arm) => (
+                  .map((cam) => (
                     <VideoStream
-                      key={arm.id}
-                      id={arm.id}
-                      name={arm.name}
-                      status={arm.status}
+                      key={`${cam.armId}-${cam.cameraType}`}
+                      id={cam.armId}
+                      name={cam.armName}
+                      cameraType={cam.cameraType}
+                      status={cam.status}
                       isFocused={false}
-                      onClick={() => handleArmClick(arm.id)}
-                      onStatusReset={() => handleStatusReset(arm.id)}
-                      onEmergencyStop={() => handleEmergencyStop(arm.id)}
+                      onClick={() => handleArmClick(cam.armId)}
+                      onStatusReset={() => handleStatusReset(cam.armId)}
+                      onEmergencyStop={() => handleEmergencyStop(cam.armId)}
                     />
                   ))}
               </div>
@@ -133,19 +154,29 @@ const Index = () => {
             <ControlPanel armName={focusedArmData!.name} />
           </div>
         ) : (
-          /* Grid View */
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+          /* Grid View - Show both cameras per arm */
+          <div className="space-y-8">
             {arms.map((arm) => (
-              <VideoStream
-                key={arm.id}
-                id={arm.id}
-                name={arm.name}
-                status={arm.status}
-                isFocused={false}
-                onClick={() => handleArmClick(arm.id)}
-                onStatusReset={() => handleStatusReset(arm.id)}
-                onEmergencyStop={() => handleEmergencyStop(arm.id)}
-              />
+              <div key={arm.id} className="space-y-3">
+                <h2 className="text-lg font-semibold text-foreground">{arm.name}</h2>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {cameraViews
+                    .filter((cam) => cam.armId === arm.id)
+                    .map((cam) => (
+                      <VideoStream
+                        key={`${cam.armId}-${cam.cameraType}`}
+                        id={cam.armId}
+                        name={cam.armName}
+                        cameraType={cam.cameraType}
+                        status={cam.status}
+                        isFocused={false}
+                        onClick={() => handleArmClick(cam.armId)}
+                        onStatusReset={() => handleStatusReset(cam.armId)}
+                        onEmergencyStop={() => handleEmergencyStop(cam.armId)}
+                      />
+                    ))}
+                </div>
+              </div>
             ))}
           </div>
         )}
