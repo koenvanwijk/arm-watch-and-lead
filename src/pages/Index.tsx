@@ -12,6 +12,7 @@ interface RobotArm {
   id: string;
   name: string;
   status: Status;
+  taskDescription: string;
 }
 
 interface CameraView {
@@ -20,15 +21,16 @@ interface CameraView {
   armName: string;
   status: Status;
   videoUrl: string;
+  taskDescription: string;
 }
 
 const mockArms: RobotArm[] = [
-  { id: "A1", name: "Assembly Arm Alpha", status: "operational" },
-  { id: "A2", name: "Welding Arm Beta", status: "attention" },
-  { id: "A3", name: "Pick & Place Gamma", status: "operational" },
-  { id: "A4", name: "Sorting Arm Delta", status: "operational" },
-  { id: "A5", name: "Inspection Arm Epsilon", status: "critical" },
-  { id: "A6", name: "Packaging Arm Zeta", status: "operational" },
+  { id: "A1", name: "Assembly Arm Alpha", status: "operational", taskDescription: "Place the orange toy in the bucket" },
+  { id: "A2", name: "Welding Arm Beta", status: "attention", taskDescription: "Pick up the blue block and stack on red block" },
+  { id: "A3", name: "Pick & Place Gamma", status: "operational", taskDescription: "Sort the colored cubes into matching bins" },
+  { id: "A4", name: "Sorting Arm Delta", status: "operational", taskDescription: "Transfer green objects to the left container" },
+  { id: "A5", name: "Inspection Arm Epsilon", status: "critical", taskDescription: "Align the yellow pieces in a straight line" },
+  { id: "A6", name: "Packaging Arm Zeta", status: "operational", taskDescription: "Place all white items in the packaging area" },
 ];
 
 const Index = () => {
@@ -77,8 +79,8 @@ const Index = () => {
 
   // Create camera views for each arm (overview + gripper) with unique videos
   const cameraViews: CameraView[] = arms.flatMap((arm) => [
-    { armId: arm.id, cameraType: "overview" as CameraType, armName: arm.name, status: arm.status, videoUrl: getVideoUrl(arm.id, "overview") },
-    { armId: arm.id, cameraType: "gripper" as CameraType, armName: arm.name, status: arm.status, videoUrl: getVideoUrl(arm.id, "gripper") },
+    { armId: arm.id, cameraType: "overview" as CameraType, armName: arm.name, status: arm.status, videoUrl: getVideoUrl(arm.id, "overview"), taskDescription: arm.taskDescription },
+    { armId: arm.id, cameraType: "gripper" as CameraType, armName: arm.name, status: arm.status, videoUrl: getVideoUrl(arm.id, "gripper"), taskDescription: arm.taskDescription },
   ]);
 
   return (
@@ -140,6 +142,7 @@ const Index = () => {
                       videoUrl={cam.videoUrl}
                       status={cam.status}
                       isFocused={true}
+                      taskDescription={cam.taskDescription}
                       onClick={() => {}}
                       onStatusReset={() => handleStatusReset(cam.armId)}
                       onEmergencyStop={() => handleEmergencyStop(cam.armId)}
@@ -161,6 +164,7 @@ const Index = () => {
                       videoUrl={cam.videoUrl}
                       status={cam.status}
                       isFocused={false}
+                      taskDescription={cam.taskDescription}
                       onClick={() => handleArmClick(cam.armId)}
                       onStatusReset={() => handleStatusReset(cam.armId)}
                       onEmergencyStop={() => handleEmergencyStop(cam.armId)}
@@ -190,6 +194,7 @@ const Index = () => {
                         videoUrl={cam.videoUrl}
                         status={cam.status}
                         isFocused={false}
+                        taskDescription={cam.taskDescription}
                         onClick={() => handleArmClick(cam.armId)}
                         onStatusReset={() => handleStatusReset(cam.armId)}
                         onEmergencyStop={() => handleEmergencyStop(cam.armId)}

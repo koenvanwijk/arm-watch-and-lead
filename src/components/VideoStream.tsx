@@ -19,6 +19,7 @@ interface VideoStreamProps {
   videoUrl?: string;
   status: Status;
   isFocused: boolean;
+  taskDescription: string;
   onClick: () => void;
   onStatusReset: () => void;
   onEmergencyStop: () => void;
@@ -48,7 +49,8 @@ export const VideoStream = ({
   cameraType,
   videoUrl,
   status, 
-  isFocused, 
+  isFocused,
+  taskDescription,
   onClick, 
   onStatusReset,
   onEmergencyStop 
@@ -134,7 +136,11 @@ export const VideoStream = ({
               )}
             </div>
             
-            <div className="flex items-end justify-between pointer-events-none pr-24">
+            <div className="space-y-3 pointer-events-none pr-24">
+              <div className="bg-primary/90 backdrop-blur-sm px-4 py-3 rounded-lg border-2 border-primary-foreground/20">
+                <p className="text-sm font-medium text-primary-foreground uppercase tracking-wide mb-1">Task Instruction</p>
+                <p className="text-base font-semibold text-primary-foreground">{taskDescription}</p>
+              </div>
               <div>
                 <h3 className="text-lg font-semibold text-foreground">{name}</h3>
                 <p className="text-sm text-muted-foreground">
