@@ -14,16 +14,147 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      profiles: {
+        Row: {
+          created_at: string | null
+          email: string
+          full_name: string | null
+          id: string
+          is_available: boolean | null
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          email: string
+          full_name?: string | null
+          id: string
+          is_available?: boolean | null
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          email?: string
+          full_name?: string | null
+          id?: string
+          is_available?: boolean | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      robot_arms: {
+        Row: {
+          created_at: string | null
+          gripper_video_url: string
+          help_requested: boolean | null
+          help_requested_by: string | null
+          id: string
+          name: string
+          overview_video_url: string
+          status: string
+          task_description: string
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          gripper_video_url: string
+          help_requested?: boolean | null
+          help_requested_by?: string | null
+          id: string
+          name: string
+          overview_video_url: string
+          status: string
+          task_description: string
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          gripper_video_url?: string
+          help_requested?: boolean | null
+          help_requested_by?: string | null
+          id?: string
+          name?: string
+          overview_video_url?: string
+          status?: string
+          task_description?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      robot_assignments: {
+        Row: {
+          assigned_at: string | null
+          assigned_operator_id: string | null
+          focused_at: string | null
+          focused_operator_id: string | null
+          id: string
+          robot_id: string
+        }
+        Insert: {
+          assigned_at?: string | null
+          assigned_operator_id?: string | null
+          focused_at?: string | null
+          focused_operator_id?: string | null
+          id?: string
+          robot_id: string
+        }
+        Update: {
+          assigned_at?: string | null
+          assigned_operator_id?: string | null
+          focused_at?: string | null
+          focused_operator_id?: string | null
+          id?: string
+          robot_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "robot_assignments_robot_id_fkey"
+            columns: ["robot_id"]
+            isOneToOne: true
+            referencedRelation: "robot_arms"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      user_roles: {
+        Row: {
+          created_at: string | null
+          id: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      get_operator_robot_count: {
+        Args: { _user_id: string }
+        Returns: number
+      }
+      has_role: {
+        Args: {
+          _role: Database["public"]["Enums"]["app_role"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
     }
     Enums: {
-      [_ in never]: never
+      app_role: "operator" | "admin"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -150,6 +281,8 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      app_role: ["operator", "admin"],
+    },
   },
 } as const
