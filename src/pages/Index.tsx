@@ -1,20 +1,16 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { VideoStream } from "@/components/VideoStream";
 import { ArmInfoPanel } from "@/components/ArmInfoPanel";
 import { ControlPanel } from "@/components/ControlPanel";
 import { Button } from "@/components/ui/button";
-import { Grid3x3 } from "lucide-react";
+import { Grid3x3, LogOut, Shield, User } from "lucide-react";
 import { toast } from "sonner";
+import { useAuth } from "@/hooks/useAuth";
+import { useRobotAssignment } from "@/hooks/useRobotAssignment";
 
 type Status = "operational" | "attention" | "critical";
 type CameraType = "overview" | "gripper";
-
-interface RobotArm {
-  id: string;
-  name: string;
-  status: Status;
-  taskDescription: string;
-}
 
 interface CameraView {
   armId: string;
@@ -23,70 +19,102 @@ interface CameraView {
   status: Status;
   videoUrl: string;
   taskDescription: string;
+  helpRequested: boolean;
+  hasFocus: boolean;
+  isAssignedToMe: boolean;
 }
 
-const mockArms: RobotArm[] = [
-  { id: "A1", name: "Assembly Arm Alpha", status: "operational", taskDescription: "Place the orange toy in the bucket" },
-  { id: "A2", name: "Welding Arm Beta", status: "attention", taskDescription: "Pick up the blue block and stack on red block" },
-  { id: "A3", name: "Pick & Place Gamma", status: "operational", taskDescription: "Sort the colored cubes into matching bins" },
-  { id: "A4", name: "Sorting Arm Delta", status: "operational", taskDescription: "Transfer green objects to the left container" },
-  { id: "A5", name: "Inspection Arm Epsilon", status: "critical", taskDescription: "Align the yellow pieces in a straight line" },
-  { id: "A6", name: "Packaging Arm Zeta", status: "operational", taskDescription: "Place all white items in the packaging area" },
-];
-
 const Index = () => {
+  const navigate = useNavigate();
+  const { user, loading: authLoading, isAdmin, signOut } = useAuth();
+  const { robots, assignments, loading, claimFocus, releaseFocus, requestHelp, updateRobotStatus } = useRobotAssignment(user?.id);
   const [focusedArm, setFocusedArm] = useState<string | null>(null);
-  const [arms, setArms] = useState<RobotArm[]>(mockArms);
 
-  // Map each arm to a different episode video
-  const armVideoMapping: Record<string, number> = {
-    "A1": 0,
-    "A2": 1,
-    "A3": 2,
-    "A4": 3,
-    "A5": 0,
-    "A6": 1,
-  };
+  useEffect(() => {
+    if (!authLoading && !user) {
+      navigate("/auth");
+    }
+  }, [user, authLoading, navigate]);
 
-  const getVideoUrl = (armId: string, cameraType: CameraType) => {
-    const episode = armVideoMapping[armId] || 0;
-    const type = cameraType === "overview" ? "overview" : "gripper";
-    return `/videos/${type}-ep${episode}.mp4`;
-  };
+  if (authLoading || loading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <p className="text-muted-foreground">Loading...</p>
+      </div>
+    );
+  }
 
-  const handleArmClick = (armId: string) => {
+  if (!user) return null;
+
+  const myAssignments = assignments.filter((a) => a.assigned_operator_id === user.id);
+  const myRobots = robots.filter((robot) =>
+    myAssignments.some((a) => a.robot_id === robot.id)
+  );
+
+  const handleArmClick = async (armId: string) => {
+    const assignment = assignments.find((a) => a.robot_id === armId);
+    
+    if (!assignment?.focused_operator_id) {
+      await claimFocus(armId);
+    }
+    
     setFocusedArm(focusedArm === armId ? null : armId);
   };
 
-  const handleStatusReset = (armId: string) => {
-    setArms(arms.map(arm => 
-      arm.id === armId ? { ...arm, status: "operational" } : arm
-    ));
-    toast.success(`${arms.find(a => a.id === armId)?.name} marked as operational`);
+  const handleStatusReset = async (armId: string) => {
+    await updateRobotStatus(armId, "operational");
   };
 
   const handleEmergencyStop = (armId: string) => {
-    const arm = arms.find(a => a.id === armId);
-    toast.error(`Emergency stop activated for ${arm?.name}`, {
+    const robot = robots.find((r) => r.id === armId);
+    toast.error(`Emergency stop activated for ${robot?.name}`, {
       description: "All operations halted. Manual restart required.",
     });
   };
 
-  const needsAttention = arms.filter(
-    (arm) => arm.status === "attention" || arm.status === "critical"
+  const handleHelpRequest = async (armId: string) => {
+    await requestHelp(armId);
+  };
+
+  const needsAttention = myRobots.filter(
+    (robot) => robot.status === "attention" || robot.status === "critical" || robot.help_requested
   );
 
-  const focusedArmData = arms.find((arm) => arm.id === focusedArm);
+  const focusedRobotData = robots.find((robot) => robot.id === focusedArm);
 
-  // Create camera views for each arm (overview + gripper) with unique videos
-  const cameraViews: CameraView[] = arms.flatMap((arm) => [
-    { armId: arm.id, cameraType: "overview" as CameraType, armName: arm.name, status: arm.status, videoUrl: getVideoUrl(arm.id, "overview"), taskDescription: arm.taskDescription },
-    { armId: arm.id, cameraType: "gripper" as CameraType, armName: arm.name, status: arm.status, videoUrl: getVideoUrl(arm.id, "gripper"), taskDescription: arm.taskDescription },
-  ]);
+  const cameraViews: CameraView[] = myRobots.flatMap((robot) => {
+    const assignment = assignments.find((a) => a.robot_id === robot.id);
+    const hasFocus = assignment?.focused_operator_id === user.id;
+    const isAssignedToMe = assignment?.assigned_operator_id === user.id;
+    
+    return [
+      {
+        armId: robot.id,
+        cameraType: "overview" as CameraType,
+        armName: robot.name,
+        status: robot.status as Status,
+        videoUrl: robot.overview_video_url,
+        taskDescription: robot.task_description,
+        helpRequested: robot.help_requested,
+        hasFocus,
+        isAssignedToMe,
+      },
+      {
+        armId: robot.id,
+        cameraType: "gripper" as CameraType,
+        armName: robot.name,
+        status: robot.status as Status,
+        videoUrl: robot.gripper_video_url,
+        taskDescription: robot.task_description,
+        helpRequested: robot.help_requested,
+        hasFocus,
+        isAssignedToMe,
+      },
+    ];
+  });
 
   return (
     <div className="min-h-screen bg-background">
-      {/* Header */}
       <header className="border-b border-border bg-card/50 backdrop-blur-sm sticky top-0 z-50">
         <div className="container mx-auto px-6 py-4">
           <div className="flex items-center justify-between">
@@ -95,7 +123,7 @@ const Index = () => {
                 Robotics Control Center
               </h1>
               <p className="text-sm text-muted-foreground">
-                Real-time Teleoperation Interface
+                Operator: {user.email} {isAdmin && "(Admin)"}
               </p>
             </div>
             
@@ -104,7 +132,7 @@ const Index = () => {
                 <div className="flex items-center gap-2 px-4 py-2 bg-[hsl(var(--status-attention))]/10 border border-[hsl(var(--status-attention))]/30 rounded-lg">
                   <div className="w-2 h-2 rounded-full bg-[hsl(var(--status-attention))] animate-pulse" />
                   <span className="text-sm font-medium text-foreground">
-                    {needsAttention.length} {needsAttention.length === 1 ? "arm" : "arms"} need attention
+                    {needsAttention.length} {needsAttention.length === 1 ? "robot needs" : "robots need"} attention
                   </span>
                 </div>
               )}
@@ -113,12 +141,35 @@ const Index = () => {
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => setFocusedArm(null)}
+                  onClick={() => {
+                    releaseFocus(focusedArm);
+                    setFocusedArm(null);
+                  }}
                 >
                   <Grid3x3 className="w-4 h-4 mr-2" />
                   Show All
                 </Button>
               )}
+
+              {isAdmin && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => navigate("/admin")}
+                >
+                  <Shield className="w-4 h-4 mr-2" />
+                  Admin
+                </Button>
+              )}
+
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={signOut}
+              >
+                <LogOut className="w-4 h-4 mr-2" />
+                Sign Out
+              </Button>
             </div>
           </div>
         </div>
@@ -132,11 +183,10 @@ const Index = () => {
             <div className="grid lg:grid-cols-3 gap-6">
               {/* Left side - Arm info and both cameras */}
               <div className="lg:col-span-2 space-y-4">
-                {/* Shared Arm Info Panel */}
                 <ArmInfoPanel
-                  armName={focusedArmData!.name}
-                  taskDescription={focusedArmData!.taskDescription}
-                  status={focusedArmData!.status}
+                  armName={focusedRobotData!.name}
+                  taskDescription={focusedRobotData!.task_description}
+                  status={focusedRobotData!.status as Status}
                   onStatusReset={() => handleStatusReset(focusedArm)}
                   onEmergencyStop={() => handleEmergencyStop(focusedArm)}
                 />
@@ -187,36 +237,44 @@ const Index = () => {
               </div>
             </div>
 
-            {/* Control Panel */}
-            <ControlPanel armName={focusedArmData!.name} />
+            <ControlPanel armName={focusedRobotData!.name} />
           </div>
         ) : (
-          /* Grid View - Show both cameras per arm */
           <div className="space-y-8">
-            {arms.map((arm) => (
-              <div key={arm.id} className="space-y-3">
-                <h2 className="text-lg font-semibold text-foreground">{arm.name}</h2>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {cameraViews
-                    .filter((cam) => cam.armId === arm.id)
-                    .map((cam) => (
-                      <VideoStream
-                        key={`${cam.armId}-${cam.cameraType}`}
-                        id={cam.armId}
-                        name={cam.armName}
-                        cameraType={cam.cameraType}
-                        videoUrl={cam.videoUrl}
-                        status={cam.status}
-                        isFocused={false}
-                        taskDescription={cam.taskDescription}
-                        onClick={() => handleArmClick(cam.armId)}
-                        onStatusReset={() => handleStatusReset(cam.armId)}
-                        onEmergencyStop={() => handleEmergencyStop(cam.armId)}
-                      />
-                    ))}
-                </div>
+            {myRobots.length === 0 ? (
+              <div className="text-center py-12">
+                <User className="w-12 h-12 mx-auto text-muted-foreground mb-4" />
+                <p className="text-muted-foreground">No robots assigned yet</p>
+                <p className="text-sm text-muted-foreground mt-2">
+                  Robots will be automatically assigned as they become available
+                </p>
               </div>
-            ))}
+            ) : (
+              myRobots.map((robot) => (
+                <div key={robot.id} className="space-y-3">
+                  <h2 className="text-lg font-semibold text-foreground">{robot.name}</h2>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {cameraViews
+                      .filter((cam) => cam.armId === robot.id)
+                      .map((cam) => (
+                        <VideoStream
+                          key={`${cam.armId}-${cam.cameraType}`}
+                          id={cam.armId}
+                          name={cam.armName}
+                          cameraType={cam.cameraType}
+                          videoUrl={cam.videoUrl}
+                          status={cam.status}
+                          isFocused={false}
+                          taskDescription={cam.taskDescription}
+                          onClick={() => handleArmClick(cam.armId)}
+                          onStatusReset={() => handleStatusReset(cam.armId)}
+                          onEmergencyStop={() => handleEmergencyStop(cam.armId)}
+                        />
+                      ))}
+                  </div>
+                </div>
+              ))
+            )}
           </div>
         )}
       </main>
