@@ -3,7 +3,7 @@ import { useRobotAssignment } from "@/hooks/useRobotAssignment";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { LogOut, Users, Bot } from "lucide-react";
+import { LogOut, Users, Bot, Plus } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
 const AdminDashboard = () => {
@@ -43,6 +43,10 @@ const AdminDashboard = () => {
               <p className="text-sm text-muted-foreground">Super Operator View</p>
             </div>
             <div className="flex items-center gap-4">
+              <Button variant="default" onClick={() => navigate("/register-robot")}>
+                <Plus className="w-4 h-4 mr-2" />
+                Register Robot
+              </Button>
               <Button variant="outline" onClick={() => navigate("/")}>
                 <Users className="w-4 h-4 mr-2" />
                 Operator View
