@@ -60,9 +60,16 @@ export const VideoStream = ({
   const videoRef = useRef<HTMLVideoElement>(null);
   const [isHovered, setIsHovered] = useState(false);
   const [currentTime, setCurrentTime] = useState(new Date());
+  const [currentVideoUrl, setCurrentVideoUrl] = useState(videoUrl);
   
   const config = statusConfig[status];
   const StatusIcon = config.icon;
+
+  // Fallback video URLs from public directory
+  const fallbackVideos = {
+    overview: "/videos/overview-camera.mp4",
+    gripper: "/videos/gripper-camera.mp4"
+  };
 
   // Mock status data
   const statusInfo = {
@@ -71,6 +78,11 @@ export const VideoStream = ({
     temperature: Math.floor(Math.random() * 15) + 38,
     connection: "Stable"
   };
+
+  // Update video URL when prop changes
+  useEffect(() => {
+    setCurrentVideoUrl(videoUrl);
+  }, [videoUrl]);
 
   // Update timestamp every second to show live connection
   useEffect(() => {
@@ -83,12 +95,18 @@ export const VideoStream = ({
 
   // Auto-play video when component mounts
   useEffect(() => {
-    if (videoRef.current && videoUrl) {
+    if (videoRef.current && currentVideoUrl) {
       videoRef.current.play().catch(err => {
         console.log("Video autoplay prevented:", err);
       });
     }
-  }, [videoUrl]);
+  }, [currentVideoUrl]);
+
+  // Handle video load error and fall back to local video
+  const handleVideoError = () => {
+    console.log(`Video load failed for ${currentVideoUrl}, falling back to local video`);
+    setCurrentVideoUrl(fallbackVideos[cameraType]);
+  };
 
   return (
     <TooltipProvider>
@@ -100,13 +118,14 @@ export const VideoStream = ({
         onMouseLeave={() => setIsHovered(false)}
       >
         <div className="relative w-full aspect-video bg-card rounded-lg overflow-hidden border border-border cursor-pointer" onClick={onClick}>
-          {videoUrl ? (
+          {currentVideoUrl ? (
             <video
               ref={videoRef}
-              src={videoUrl}
+              src={currentVideoUrl}
               loop
               muted
               playsInline
+              onError={handleVideoError}
               className="w-full h-full object-cover"
             />
           ) : (
