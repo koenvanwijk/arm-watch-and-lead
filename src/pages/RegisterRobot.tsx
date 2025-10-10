@@ -26,7 +26,8 @@ const RegisterRobot = () => {
 
   useEffect(() => {
     if (!authLoading && (!user || !isAdmin)) {
-      navigate("/auth");
+      toast.error("Access denied. Admin privileges required to register robots.");
+      navigate(user ? "/" : "/auth");
     }
   }, [authLoading, user, isAdmin, navigate]);
 
