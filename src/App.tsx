@@ -8,6 +8,7 @@ import Auth from "./pages/Auth";
 import AdminDashboard from "./pages/AdminDashboard";
 import RegisterRobot from "./pages/RegisterRobot";
 import RobotControl from "./pages/RobotControl";
+import LocalRobotControl from "./pages/LocalRobotControl";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -24,6 +25,7 @@ const App = () => (
           <Route path="/admin" element={<AdminDashboard />} />
           <Route path="/register-robot" element={<RegisterRobot />} />
           <Route path="/robot/:id" element={<RobotControl />} />
+          <Route path="/local/:id" element={<LocalRobotControl />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>
