@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { VideoStream } from "@/components/VideoStream";
@@ -9,8 +9,9 @@ import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { AlertTriangle, HelpCircle, CheckCircle, XCircle, Save, ArrowLeft, Wifi, WifiOff, X, UserCheck } from "lucide-react";
+import { AlertTriangle, HelpCircle, CheckCircle, XCircle, Save, ArrowLeft, Wifi, WifiOff, X, UserCheck, Video, VideoOff, Settings, Mic, MicOff } from "lucide-react";
 import { toast } from "sonner";
+import { WebRTCStreamer, QualityLevel, QUALITY_PRESETS } from "@/services/webrtc";
 
 interface RobotArm {
   id: string;
@@ -31,6 +32,14 @@ export default function LocalRobotControl() {
   const [taskDescription, setTaskDescription] = useState("");
   const [robotStatus, setRobotStatus] = useState<"operational" | "attention" | "critical">("operational");
   const [isOnline, setIsOnline] = useState(navigator.onLine);
+  
+  // WebRTC streaming state
+  const [isStreaming, setIsStreaming] = useState(false);
+  const [streamingQuality, setStreamingQuality] = useState<QualityLevel>('low');
+  const [connectionState, setConnectionState] = useState<RTCPeerConnectionState | null>(null);
+  const [hasAudio, setHasAudio] = useState(false);
+  const webrtcStreamer = useRef<WebRTCStreamer | null>(null);
+  const localVideoRef = useRef<HTMLVideoElement>(null);
 
   useEffect(() => {
     if (!id) {
@@ -68,6 +77,11 @@ export default function LocalRobotControl() {
       supabase.removeChannel(channel);
       window.removeEventListener('online', handleOnline);
       window.removeEventListener('offline', handleOffline);
+      
+      // Cleanup WebRTC streaming
+      if (webrtcStreamer.current) {
+        webrtcStreamer.current.cleanup();
+      }
     };
   }, [id, navigate]);
 
@@ -287,6 +301,93 @@ export default function LocalRobotControl() {
     }
   };
 
+  const startWebRTCStreaming = async () => {
+    if (!id || isStreaming) return;
+
+    try {
+      setIsStreaming(true);
+      
+      webrtcStreamer.current = new WebRTCStreamer(
+        id,
+        (state) => setConnectionState(state),
+        (quality) => setStreamingQuality(quality),
+        (audioStatus) => setHasAudio(audioStatus)
+      );
+
+      await webrtcStreamer.current.initialize();
+      await webrtcStreamer.current.startListeningForSignaling();
+
+      // Display local video preview
+      if (localVideoRef.current && webrtcStreamer.current.getLocalStream()) {
+        localVideoRef.current.srcObject = webrtcStreamer.current.getLocalStream();
+      }
+
+      // Create offer for remote operators
+      await webrtcStreamer.current.createOffer();
+
+      const audioStatus = webrtcStreamer.current.hasAudioTrack();
+      if (audioStatus) {
+        toast.success("WebRTC streaming started with video and audio");
+      } else {
+        toast.success("WebRTC streaming started (video only - microphone not available)");
+      }
+      
+      // Listen for operator focus changes to adapt quality
+      startQualityAdaptation();
+      
+    } catch (error) {
+      console.error('Failed to start WebRTC streaming:', error);
+      toast.error("Failed to start camera streaming");
+      setIsStreaming(false);
+    }
+  };
+
+  const stopWebRTCStreaming = async () => {
+    if (webrtcStreamer.current) {
+      await webrtcStreamer.current.cleanup();
+      webrtcStreamer.current = null;
+    }
+    
+    if (localVideoRef.current) {
+      localVideoRef.current.srcObject = null;
+    }
+    
+    setIsStreaming(false);
+    setConnectionState(null);
+    setHasAudio(false);
+    toast.success("WebRTC streaming stopped");
+  };
+
+  const startQualityAdaptation = () => {
+    if (!id) return;
+
+    // Listen for robot assignment changes to detect operator focus
+    const channel = supabase
+      .channel(`quality-adaptation-${id}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "UPDATE",
+          schema: "public",
+          table: "robot_assignments",
+          filter: `robot_id=eq.${id}`,
+        },
+        (payload) => {
+          const assignment = payload.new;
+          const newQuality: QualityLevel = assignment.focused_operator_id ? 'high' : 'low';
+          
+          if (webrtcStreamer.current && newQuality !== streamingQuality) {
+            console.log(`Adapting quality to ${newQuality} based on operator focus`);
+            webrtcStreamer.current.changeQuality(newQuality);
+          }
+        }
+      )
+      .subscribe();
+
+    // Store channel reference for cleanup
+    (webrtcStreamer.current as any).qualityChannel = channel;
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
@@ -351,6 +452,144 @@ export default function LocalRobotControl() {
             Back to Dashboard
           </Button>
         </div>
+
+        {/* WebRTC Streaming Status */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Video className="w-5 h-5" />
+              Live Camera Streaming to Remote Operators
+            </CardTitle>
+            <CardDescription>
+              Stream your local camera to remote operators with automatic quality adaptation
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid md:grid-cols-2 gap-4">
+              {/* Local video preview */}
+              <div className="space-y-2">
+                <Label>Local Camera Preview</Label>
+                <div className="relative aspect-video bg-muted rounded-lg overflow-hidden border">
+                  {isStreaming ? (
+                    <video
+                      ref={localVideoRef}
+                      autoPlay
+                      muted
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <div className="absolute inset-0 flex items-center justify-center text-muted-foreground">
+                      <VideoOff className="w-8 h-8 mb-2" />
+                    </div>
+                  )}
+                  
+                  {isStreaming && (
+                    <div className="absolute top-2 left-2 flex gap-2">
+                      <Badge variant="destructive" className="text-xs">
+                        ● LIVE
+                      </Badge>
+                      <Badge variant="secondary" className="text-xs">
+                        {streamingQuality.toUpperCase()}
+                      </Badge>
+                      <Badge 
+                        variant={hasAudio ? "default" : "outline"} 
+                        className="text-xs flex items-center gap-1"
+                      >
+                        {hasAudio ? <Mic className="w-3 h-3" /> : <MicOff className="w-3 h-3" />}
+                        {hasAudio ? "AUDIO" : "NO AUDIO"}
+                      </Badge>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Streaming controls and status */}
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <Label>Connection Status</Label>
+                  <div className="flex items-center gap-2">
+                    <Badge 
+                      variant={connectionState === 'connected' ? 'default' : 'secondary'}
+                      className={connectionState === 'connected' ? 'bg-green-600' : ''}
+                    >
+                      {connectionState === 'connected' && '● '}
+                      {connectionState || 'Disconnected'}
+                    </Badge>
+                    {isOnline ? (
+                      <Wifi className="w-4 h-4 text-green-600" />
+                    ) : (
+                      <WifiOff className="w-4 h-4 text-destructive" />
+                    )}
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Audio Status</Label>
+                  <div className="flex items-center gap-2">
+                    {hasAudio ? (
+                      <Badge variant="default" className="bg-green-600">
+                        <Mic className="w-3 h-3 mr-1" />
+                        Audio Enabled
+                      </Badge>
+                    ) : (
+                      <Badge variant="secondary">
+                        <MicOff className="w-3 h-3 mr-1" />
+                        Video Only
+                      </Badge>
+                    )}
+                  </div>
+                  {!hasAudio && isStreaming && (
+                    <div className="text-xs text-muted-foreground">
+                      Microphone access was denied or unavailable. Video streaming continues normally.
+                    </div>
+                  )}
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Current Quality</Label>
+                  <div className="text-sm text-muted-foreground">
+                    <div>Resolution: {QUALITY_PRESETS[streamingQuality].width}x{QUALITY_PRESETS[streamingQuality].height}</div>
+                    <div>Frame Rate: {QUALITY_PRESETS[streamingQuality].frameRate} fps</div>
+                    <div>Bitrate: {Math.round(QUALITY_PRESETS[streamingQuality].bitrate / 1000)} kbps</div>
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Quality Adaptation</Label>
+                  <div className="text-sm text-muted-foreground">
+                    Quality automatically adjusts based on operator focus:
+                    <ul className="list-disc list-inside mt-1 space-y-1">
+                      <li><strong>Low:</strong> When operator is viewing overview</li>
+                      <li><strong>High:</strong> When operator focuses on this robot</li>
+                    </ul>
+                  </div>
+                </div>
+
+                <div className="flex gap-2">
+                  {!isStreaming ? (
+                    <Button 
+                      onClick={startWebRTCStreaming}
+                      disabled={!isOnline}
+                      className="flex-1"
+                    >
+                      <Video className="w-4 h-4 mr-2" />
+                      Start Camera Streaming
+                    </Button>
+                  ) : (
+                    <Button 
+                      onClick={stopWebRTCStreaming}
+                      variant="destructive"
+                      className="flex-1"
+                    >
+                      <VideoOff className="w-4 h-4 mr-2" />
+                      Stop Streaming
+                    </Button>
+                  )}
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
 
         {/* Help Request Status */}
         {(robot?.help_requested || robotStatus === "attention") && (

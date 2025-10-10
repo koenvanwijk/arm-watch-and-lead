@@ -210,6 +210,10 @@ const Index = () => {
                         onStatusReset={() => handleStatusReset(cam.armId)}
                         onEmergencyStop={() => handleEmergencyStop(cam.armId)}
                         compact={true}
+                        useWebRTC={true}
+                        operatorId={user?.id}
+                        onFocus={() => console.log(`Focused on ${cam.armId} ${cam.cameraType}`)}
+                        onUnfocus={() => console.log(`Unfocused from ${cam.armId} ${cam.cameraType}`)}
                       />
                     ))}
                 </div>
@@ -233,6 +237,10 @@ const Index = () => {
                       onClick={() => handleArmClick(cam.armId)}
                       onStatusReset={() => handleStatusReset(cam.armId)}
                       onEmergencyStop={() => handleEmergencyStop(cam.armId)}
+                      useWebRTC={true}
+                      operatorId={user?.id}
+                      onFocus={() => console.log(`Focused on ${cam.armId} ${cam.cameraType}`)}
+                      onUnfocus={() => console.log(`Unfocused from ${cam.armId} ${cam.cameraType}`)}
                     />
                   ))}
               </div>
@@ -270,6 +278,10 @@ const Index = () => {
                           onClick={() => handleArmClick(cam.armId)}
                           onStatusReset={() => handleStatusReset(cam.armId)}
                           onEmergencyStop={() => handleEmergencyStop(cam.armId)}
+                          useWebRTC={true}
+                          operatorId={user?.id}
+                          onFocus={() => console.log(`Focused on ${cam.armId} ${cam.cameraType}`)}
+                          onUnfocus={() => console.log(`Unfocused from ${cam.armId} ${cam.cameraType}`)}
                         />
                       ))}
                   </div>

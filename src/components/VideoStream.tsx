@@ -1,13 +1,15 @@
 import { useEffect, useRef, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { AlertCircle, CheckCircle, XCircle, Power, Check, Radio } from "lucide-react";
+import { AlertCircle, CheckCircle, XCircle, Power, Check, Radio, Wifi, WifiOff } from "lucide-react";
 import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { WebRTCReceiver } from "@/services/webrtc-receiver";
+import { QualityLevel } from "@/services/webrtc";
 
 type Status = "operational" | "attention" | "critical";
 type CameraType = "overview" | "gripper";
@@ -24,6 +26,11 @@ interface VideoStreamProps {
   onStatusReset: () => void;
   onEmergencyStop: () => void;
   compact?: boolean; // New prop for compact mode without task info and controls
+  // WebRTC props
+  useWebRTC?: boolean; // Enable WebRTC streaming
+  operatorId?: string; // Required for WebRTC
+  onFocus?: () => void; // Called when focusing on this robot
+  onUnfocus?: () => void; // Called when unfocusing this robot
 }
 
 const statusConfig = {
@@ -55,12 +62,22 @@ export const VideoStream = ({
   onClick, 
   onStatusReset,
   onEmergencyStop,
-  compact = false
+  compact = false,
+  useWebRTC = false,
+  operatorId,
+  onFocus,
+  onUnfocus
 }: VideoStreamProps) => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [isHovered, setIsHovered] = useState(false);
   const [currentTime, setCurrentTime] = useState(new Date());
   const [currentVideoUrl, setCurrentVideoUrl] = useState(videoUrl);
+  
+  // WebRTC state
+  const [webrtcReceiver, setWebrtcReceiver] = useState<WebRTCReceiver | null>(null);
+  const [connectionState, setConnectionState] = useState<RTCPeerConnectionState | null>(null);
+  const [currentQuality, setCurrentQuality] = useState<QualityLevel>('low');
+  const [isConnected, setIsConnected] = useState(false);
   
   const config = statusConfig[status];
   const StatusIcon = config.icon;
@@ -83,6 +100,80 @@ export const VideoStream = ({
   useEffect(() => {
     setCurrentVideoUrl(videoUrl);
   }, [videoUrl]);
+
+  // Initialize WebRTC if enabled
+  useEffect(() => {
+    if (useWebRTC && operatorId && !webrtcReceiver) {
+      initializeWebRTC();
+    } else if (!useWebRTC && webrtcReceiver) {
+      cleanupWebRTC();
+    }
+
+    return () => {
+      if (webrtcReceiver) {
+        cleanupWebRTC();
+      }
+    };
+  }, [useWebRTC, operatorId, id]);
+
+  // Handle focus changes for quality adaptation
+  useEffect(() => {
+    if (webrtcReceiver && connectionState === 'connected') {
+      if (isFocused) {
+        webrtcReceiver.requestFocus();
+        onFocus?.();
+      } else {
+        webrtcReceiver.releaseFocus();
+        onUnfocus?.();
+      }
+    }
+  }, [isFocused, webrtcReceiver, connectionState]);
+
+  const initializeWebRTC = async () => {
+    if (!operatorId) return;
+
+    try {
+      const receiver = new WebRTCReceiver(
+        id,
+        operatorId,
+        (stream) => {
+          // Display WebRTC stream
+          if (videoRef.current) {
+            videoRef.current.srcObject = stream;
+          }
+          setIsConnected(true);
+        },
+        (state) => {
+          setConnectionState(state);
+          setIsConnected(state === 'connected');
+        },
+        (quality) => {
+          setCurrentQuality(quality);
+        }
+      );
+
+      await receiver.initialize();
+      setWebrtcReceiver(receiver);
+      
+      console.log('WebRTC receiver initialized for robot:', id);
+    } catch (error) {
+      console.error('Failed to initialize WebRTC receiver:', error);
+    }
+  };
+
+  const cleanupWebRTC = async () => {
+    if (webrtcReceiver) {
+      await webrtcReceiver.cleanup();
+      setWebrtcReceiver(null);
+      setConnectionState(null);
+      setIsConnected(false);
+      
+      // Reset to video URL if available
+      if (videoRef.current) {
+        videoRef.current.srcObject = null;
+      }
+    }
+  };
 
   // Update timestamp every second to show live connection
   useEffect(() => {
@@ -118,14 +209,15 @@ export const VideoStream = ({
         onMouseLeave={() => setIsHovered(false)}
       >
         <div className="relative w-full aspect-video bg-card rounded-lg overflow-hidden border border-border cursor-pointer" onClick={onClick}>
-          {currentVideoUrl ? (
+          {(currentVideoUrl || useWebRTC) ? (
             <video
               ref={videoRef}
-              src={currentVideoUrl}
-              loop
+              src={useWebRTC ? undefined : currentVideoUrl} // Don't set src when using WebRTC
+              loop={!useWebRTC} // Don't loop WebRTC streams
               muted
               playsInline
-              onError={handleVideoError}
+              autoPlay={useWebRTC} // Auto-play WebRTC streams
+              onError={useWebRTC ? undefined : handleVideoError} // Don't handle errors for WebRTC
               className="w-full h-full object-cover"
             />
           ) : (
@@ -145,10 +237,37 @@ export const VideoStream = ({
                   <StatusIcon className="w-3 h-3 mr-1" />
                   {config.label}
                 </Badge>
-                <Badge variant="secondary" className="bg-background/80 text-foreground border-border backdrop-blur-sm">
-                  <Radio className="w-3 h-3 mr-1 text-[hsl(var(--status-operational))] animate-pulse" />
-                  LIVE
-                </Badge>
+                {useWebRTC ? (
+                  <Badge variant="secondary" className={`border-border backdrop-blur-sm ${
+                    isConnected 
+                      ? 'bg-[hsl(var(--status-operational))]/80 text-white' 
+                      : connectionState === 'connecting' 
+                        ? 'bg-[hsl(var(--status-attention))]/80 text-black animate-pulse'
+                        : 'bg-background/80 text-foreground'
+                  }`}>
+                    {isConnected ? (
+                      <>
+                        <Wifi className="w-3 h-3 mr-1" />
+                        LIVE • {currentQuality.toUpperCase()}
+                      </>
+                    ) : connectionState === 'connecting' ? (
+                      <>
+                        <Radio className="w-3 h-3 mr-1 animate-pulse" />
+                        CONNECTING
+                      </>
+                    ) : (
+                      <>
+                        <WifiOff className="w-3 h-3 mr-1" />
+                        OFFLINE
+                      </>
+                    )}
+                  </Badge>
+                ) : (
+                  <Badge variant="secondary" className="bg-background/80 text-foreground border-border backdrop-blur-sm">
+                    <Radio className="w-3 h-3 mr-1 text-[hsl(var(--status-operational))] animate-pulse" />
+                    RECORDED
+                  </Badge>
+                )}
               </div>
               {isFocused && (
                 <Badge variant="secondary" className="bg-primary text-primary-foreground border-0">
