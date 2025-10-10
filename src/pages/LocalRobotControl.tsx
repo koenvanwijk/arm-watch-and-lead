@@ -9,7 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { AlertTriangle, HelpCircle, CheckCircle, XCircle, Save, ArrowLeft, Wifi, WifiOff } from "lucide-react";
+import { AlertTriangle, HelpCircle, CheckCircle, XCircle, Save, ArrowLeft, Wifi, WifiOff, X, UserCheck } from "lucide-react";
 import { toast } from "sonner";
 
 interface RobotArm {
@@ -159,25 +159,130 @@ export default function LocalRobotControl() {
         if (robot) {
           setRobot({ ...robot, help_requested: true, status: "attention" });
         }
+        setRobotStatus("attention");
       }
     } catch (error) {
       toast.error("Failed to request help - network error");
     }
   };
 
+  const cancelHelpRequest = async () => {
+    if (!id || !isOnline) {
+      if (!isOnline) {
+        toast.error("Cannot cancel help request - no internet connection");
+      }
+      return;
+    }
+
+    try {
+      const { error } = await supabase
+        .from("robot_arms")
+        .update({
+          help_requested: false,
+          status: "operational",
+        })
+        .eq("id", id);
+
+      if (error) {
+        toast.error("Failed to cancel help request");
+      } else {
+        toast.success("Help request canceled");
+        if (robot) {
+          setRobot({ ...robot, help_requested: false, status: "operational" });
+        }
+        setRobotStatus("operational");
+      }
+    } catch (error) {
+      toast.error("Failed to cancel help request - network error");
+    }
+  };
+
+  const markAsResolved = async () => {
+    if (!id || !isOnline) {
+      if (!isOnline) {
+        toast.error("Cannot mark as resolved - no internet connection");
+      }
+      return;
+    }
+
+    try {
+      const { error } = await supabase
+        .from("robot_arms")
+        .update({
+          help_requested: false,
+          status: "operational",
+        })
+        .eq("id", id);
+
+      if (error) {
+        toast.error("Failed to mark as resolved");
+      } else {
+        toast.success("Issue marked as resolved - thank you!");
+        if (robot) {
+          setRobot({ ...robot, help_requested: false, status: "operational" });
+        }
+        setRobotStatus("operational");
+      }
+    } catch (error) {
+      toast.error("Failed to mark as resolved - network error");
+    }
+  };
+
+  const markAsOperational = async () => {
+    if (!id || !isOnline) {
+      if (!isOnline) {
+        toast.error("Cannot update status - no internet connection");
+      }
+      return;
+    }
+
+    try {
+      const { error } = await supabase
+        .from("robot_arms")
+        .update({
+          status: "operational",
+          help_requested: false, // Clear any help requests when marking as operational
+        })
+        .eq("id", id);
+
+      if (error) {
+        toast.error("Failed to update status");
+      } else {
+        toast.success("Robot status updated to operational");
+        if (robot) {
+          setRobot({ ...robot, status: "operational", help_requested: false });
+        }
+        setRobotStatus("operational");
+      }
+    } catch (error) {
+      toast.error("Failed to update status - network error");
+    }
+  };
+
   const handleEmergencyStop = async () => {
-    // Emergency stop should work even offline
+    // Update local state immediately for emergency stop
     setRobotStatus("critical");
     toast.error("EMERGENCY STOP ACTIVATED");
     
     if (isOnline && id) {
       try {
-        await supabase
+        const { error } = await supabase
           .from("robot_arms")
           .update({ status: "critical" })
           .eq("id", id);
+          
+        if (error) {
+          console.error("Failed to sync emergency stop:", error);
+          toast.error("Failed to sync emergency stop to database");
+        } else {
+          // Update robot state to match database
+          if (robot) {
+            setRobot({ ...robot, status: "critical" });
+          }
+        }
       } catch (error) {
         console.error("Failed to sync emergency stop:", error);
+        toast.error("Failed to sync emergency stop - network error");
       }
     }
   };
@@ -247,6 +352,48 @@ export default function LocalRobotControl() {
           </Button>
         </div>
 
+        {/* Help Request Status */}
+        {(robot?.help_requested || robotStatus === "attention") && (
+          <Card className="border-amber-500 bg-amber-50 dark:bg-amber-950/20">
+            <CardContent className="pt-6">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <HelpCircle className="w-6 h-6 text-amber-600" />
+                  <div>
+                    <p className="font-medium text-amber-900 dark:text-amber-100">
+                      Help Request Active
+                    </p>
+                    <p className="text-sm text-amber-700 dark:text-amber-200">
+                      Remote operators have been notified and may be providing assistance
+                    </p>
+                  </div>
+                </div>
+                <div className="flex gap-2">
+                  <Button
+                    onClick={markAsResolved}
+                    variant="default"
+                    size="sm"
+                    disabled={!isOnline}
+                    className="bg-green-600 hover:bg-green-700"
+                  >
+                    <UserCheck className="w-4 h-4 mr-2" />
+                    Mark as Resolved
+                  </Button>
+                  <Button
+                    onClick={cancelHelpRequest}
+                    variant="outline"
+                    size="sm"
+                    disabled={!isOnline}
+                  >
+                    <X className="w-4 h-4 mr-2" />
+                    Cancel Request
+                  </Button>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
         {/* Task Description Editor */}
         <Card>
           <CardHeader>
@@ -304,7 +451,7 @@ export default function LocalRobotControl() {
               isFocused={false}
               taskDescription={taskDescription}
               onClick={() => {}}
-              onStatusReset={() => setRobotStatus("operational")}
+              onStatusReset={markAsOperational}
               onEmergencyStop={handleEmergencyStop}
             />
             <VideoStream
@@ -316,7 +463,7 @@ export default function LocalRobotControl() {
               isFocused={false}
               taskDescription={taskDescription}
               onClick={() => {}}
-              onStatusReset={() => setRobotStatus("operational")}
+              onStatusReset={markAsOperational}
               onEmergencyStop={handleEmergencyStop}
             />
           </div>
@@ -327,21 +474,46 @@ export default function LocalRobotControl() {
 
         {/* Action Buttons */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <Button
-            onClick={requestHelp}
-            disabled={robot?.help_requested || !isOnline}
-            variant="outline"
-            size="lg"
-          >
-            <HelpCircle className="w-5 h-5 mr-2" />
-            {robot?.help_requested ? "Help Already Requested" : "Request Remote Help"}
-          </Button>
+          {!robot?.help_requested ? (
+            <Button
+              onClick={requestHelp}
+              variant="outline"
+              size="lg"
+              disabled={!isOnline}
+              className="border-amber-500 text-amber-700 hover:bg-amber-50 dark:hover:bg-amber-950/20"
+            >
+              <HelpCircle className="w-5 h-5 mr-2" />
+              Request Remote Help
+            </Button>
+          ) : (
+            <div className="grid grid-cols-2 gap-2">
+              <Button
+                onClick={markAsResolved}
+                variant="default"
+                size="lg"
+                disabled={!isOnline}
+                className="bg-green-600 hover:bg-green-700"
+              >
+                <UserCheck className="w-5 h-5 mr-2" />
+                Issue Resolved
+              </Button>
+              <Button
+                onClick={cancelHelpRequest}
+                variant="outline"
+                size="lg"
+                disabled={!isOnline}
+              >
+                <X className="w-5 h-5 mr-2" />
+                Cancel Request
+              </Button>
+            </div>
+          )}
           
           <Button
-            onClick={() => setRobotStatus("operational")}
+            onClick={markAsOperational}
             variant="default"
             size="lg"
-            disabled={robotStatus === "operational"}
+            disabled={robotStatus === "operational" || !isOnline}
           >
             <CheckCircle className="w-5 h-5 mr-2" />
             Mark as Operational
