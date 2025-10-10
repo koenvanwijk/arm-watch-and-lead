@@ -7,10 +7,12 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { EditTaskDialog } from "./EditTaskDialog";
 
 type Status = "operational" | "attention" | "critical";
 
 interface ArmInfoPanelProps {
+  armId: string;
   armName: string;
   taskDescription: string;
   status: Status;
@@ -37,6 +39,7 @@ const statusConfig = {
 };
 
 export const ArmInfoPanel = ({ 
+  armId,
   armName, 
   taskDescription, 
   status, 
@@ -60,8 +63,18 @@ export const ArmInfoPanel = ({
             </div>
             
             <div className="bg-primary/10 backdrop-blur-sm px-4 py-3 rounded-lg border-2 border-primary/20">
-              <p className="text-sm font-medium text-muted-foreground uppercase tracking-wide mb-1">Task Instruction</p>
-              <p className="text-lg font-semibold text-foreground">{taskDescription}</p>
+              <div className="flex items-start justify-between gap-2">
+                <div className="flex-1">
+                  <p className="text-sm font-medium text-muted-foreground uppercase tracking-wide mb-1">Task Instruction</p>
+                  <p className="text-lg font-semibold text-foreground">{taskDescription}</p>
+                </div>
+                <EditTaskDialog 
+                  robotId={armId}
+                  robotName={armName}
+                  currentTask={taskDescription}
+                  variant="icon"
+                />
+              </div>
             </div>
           </div>
 

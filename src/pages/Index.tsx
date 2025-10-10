@@ -184,6 +184,7 @@ const Index = () => {
               {/* Left side - Arm info and both cameras */}
               <div className="lg:col-span-2 space-y-4">
                 <ArmInfoPanel
+                  armId={focusedArm}
                   armName={focusedRobotData!.name}
                   taskDescription={focusedRobotData!.task_description}
                   status={focusedRobotData!.status as Status}
