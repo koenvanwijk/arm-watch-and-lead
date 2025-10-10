@@ -29,8 +29,12 @@ export const useRobotAssignment = (userId: string | undefined) => {
   useEffect(() => {
     if (!userId) return;
 
-    fetchRobots();
-    fetchAssignments();
+    const loadData = async () => {
+      await fetchAssignments();
+      await fetchRobots();
+    };
+
+    loadData();
 
     const robotChannel = supabase
       .channel("robot-changes")
@@ -79,8 +83,40 @@ export const useRobotAssignment = (userId: string | undefined) => {
       toast.error("Failed to load robots");
     } else {
       setRobots((data || []) as RobotArm[]);
+      // Auto-assign unassigned robots to this operator
+      if (userId && data) {
+        setTimeout(() => autoAssignRobots(data as RobotArm[]), 0);
+      }
     }
     setLoading(false);
+  };
+
+  const autoAssignRobots = async (allRobots: RobotArm[]) => {
+    if (!userId) return;
+
+    // Find robots without assignments
+    const unassignedRobots = allRobots.filter(
+      (robot) => !assignments.some((a) => a.robot_id === robot.id)
+    );
+
+    // Check operator's current robot count
+    const myAssignmentCount = assignments.filter(
+      (a) => a.assigned_operator_id === userId
+    ).length;
+
+    // Auto-assign up to 10 robots
+    for (const robot of unassignedRobots) {
+      if (myAssignmentCount >= 10) break;
+
+      const { error } = await supabase.from("robot_assignments").insert({
+        robot_id: robot.id,
+        assigned_operator_id: userId,
+      });
+
+      if (!error) {
+        console.log(`Auto-assigned robot ${robot.id} to operator`);
+      }
+    }
   };
 
   const fetchAssignments = async () => {
