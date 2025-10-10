@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
@@ -13,7 +13,7 @@ import { ArrowLeft } from "lucide-react";
 
 const RegisterRobot = () => {
   const navigate = useNavigate();
-  const { user, isAdmin } = useAuth();
+  const { user, isAdmin, loading: authLoading } = useAuth();
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
     id: "",
@@ -24,8 +24,21 @@ const RegisterRobot = () => {
     status: "operational",
   });
 
+  useEffect(() => {
+    if (!authLoading && (!user || !isAdmin)) {
+      navigate("/auth");
+    }
+  }, [authLoading, user, isAdmin, navigate]);
+
+  if (authLoading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <p className="text-muted-foreground">Loading...</p>
+      </div>
+    );
+  }
+
   if (!user || !isAdmin) {
-    navigate("/auth");
     return null;
   }
 
