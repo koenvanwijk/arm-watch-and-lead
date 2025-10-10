@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { VideoStream } from "@/components/VideoStream";
+import { ArmInfoPanel } from "@/components/ArmInfoPanel";
 import { ControlPanel } from "@/components/ControlPanel";
 import { Button } from "@/components/ui/button";
 import { Grid3x3 } from "lucide-react";
@@ -129,28 +130,41 @@ const Index = () => {
           /* Focused View */
           <div className="space-y-6">
             <div className="grid lg:grid-cols-3 gap-6">
-              {/* Large focused streams - both cameras for focused arm */}
+              {/* Left side - Arm info and both cameras */}
               <div className="lg:col-span-2 space-y-4">
-                {cameraViews
-                  .filter((cam) => cam.armId === focusedArm)
-                  .map((cam) => (
-                    <VideoStream
-                      key={`${cam.armId}-${cam.cameraType}`}
-                      id={cam.armId}
-                      name={cam.armName}
-                      cameraType={cam.cameraType}
-                      videoUrl={cam.videoUrl}
-                      status={cam.status}
-                      isFocused={true}
-                      taskDescription={cam.taskDescription}
-                      onClick={() => {}}
-                      onStatusReset={() => handleStatusReset(cam.armId)}
-                      onEmergencyStop={() => handleEmergencyStop(cam.armId)}
-                    />
-                  ))}
+                {/* Shared Arm Info Panel */}
+                <ArmInfoPanel
+                  armName={focusedArmData!.name}
+                  taskDescription={focusedArmData!.taskDescription}
+                  status={focusedArmData!.status}
+                  onStatusReset={() => handleStatusReset(focusedArm)}
+                  onEmergencyStop={() => handleEmergencyStop(focusedArm)}
+                />
+                
+                {/* Both camera feeds in compact mode */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {cameraViews
+                    .filter((cam) => cam.armId === focusedArm)
+                    .map((cam) => (
+                      <VideoStream
+                        key={`${cam.armId}-${cam.cameraType}`}
+                        id={cam.armId}
+                        name={cam.armName}
+                        cameraType={cam.cameraType}
+                        videoUrl={cam.videoUrl}
+                        status={cam.status}
+                        isFocused={true}
+                        taskDescription={cam.taskDescription}
+                        onClick={() => {}}
+                        onStatusReset={() => handleStatusReset(cam.armId)}
+                        onEmergencyStop={() => handleEmergencyStop(cam.armId)}
+                        compact={true}
+                      />
+                    ))}
+                </div>
               </div>
 
-              {/* Thumbnail grid */}
+              {/* Right side - Thumbnail grid */}
               <div className="grid grid-cols-2 lg:grid-cols-1 gap-4">
                 {cameraViews
                   .filter((cam) => cam.armId !== focusedArm && cam.cameraType === "overview")

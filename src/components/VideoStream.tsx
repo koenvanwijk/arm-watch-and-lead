@@ -23,6 +23,7 @@ interface VideoStreamProps {
   onClick: () => void;
   onStatusReset: () => void;
   onEmergencyStop: () => void;
+  compact?: boolean; // New prop for compact mode without task info and controls
 }
 
 const statusConfig = {
@@ -53,7 +54,8 @@ export const VideoStream = ({
   taskDescription,
   onClick, 
   onStatusReset,
-  onEmergencyStop 
+  onEmergencyStop,
+  compact = false
 }: VideoStreamProps) => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [isHovered, setIsHovered] = useState(false);
@@ -136,15 +138,19 @@ export const VideoStream = ({
               )}
             </div>
             
-            <div className="space-y-3 pointer-events-none pr-24">
-              <div className="bg-primary/90 backdrop-blur-sm px-4 py-3 rounded-lg border-2 border-primary-foreground/20">
-                <p className="text-sm font-medium text-primary-foreground uppercase tracking-wide mb-1">Task Instruction</p>
-                <p className="text-base font-semibold text-primary-foreground">{taskDescription}</p>
-              </div>
+            <div className={`pointer-events-none ${compact ? 'pr-4' : 'space-y-3 pr-24'}`}>
+              {!compact && (
+                <div className="bg-primary/90 backdrop-blur-sm px-4 py-3 rounded-lg border-2 border-primary-foreground/20 mb-3">
+                  <p className="text-sm font-medium text-primary-foreground uppercase tracking-wide mb-1">Task Instruction</p>
+                  <p className="text-base font-semibold text-primary-foreground">{taskDescription}</p>
+                </div>
+              )}
               <div>
-                <h3 className="text-lg font-semibold text-foreground">{name}</h3>
+                <h3 className={`font-semibold text-foreground ${compact ? 'text-base' : 'text-lg'}`}>
+                  {compact ? `${cameraType === "overview" ? "Overview Camera" : "Gripper Detail"}` : name}
+                </h3>
                 <p className="text-sm text-muted-foreground">
-                  {cameraType === "overview" ? "Overview Camera" : "Gripper Detail"} {id} • {currentTime.toLocaleTimeString([], { hour12: false })}
+                  {compact ? `${id} • ${currentTime.toLocaleTimeString([], { hour12: false })}` : `${cameraType === "overview" ? "Overview Camera" : "Gripper Detail"} ${id} • ${currentTime.toLocaleTimeString([], { hour12: false })}`}
                 </p>
               </div>
             </div>
@@ -182,48 +188,50 @@ export const VideoStream = ({
           )}
         </div>
 
-        {/* Action buttons - always visible */}
-        <div className="absolute bottom-4 right-4 flex gap-2 z-10">
-          {(status === "attention" || status === "critical") && (
+        {/* Action buttons - only show in non-compact mode */}
+        {!compact && (
+          <div className="absolute bottom-4 right-4 flex gap-2 z-10">
+            {(status === "attention" || status === "critical") && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    className="pointer-events-auto bg-[hsl(var(--status-operational))] hover:bg-[hsl(var(--status-operational))]/80 text-white border-0"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onStatusReset();
+                    }}
+                  >
+                    <Check className="w-4 h-4" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Mark as Resolved</p>
+                </TooltipContent>
+              </Tooltip>
+            )}
+            
             <Tooltip>
               <TooltipTrigger asChild>
                 <Button
                   size="sm"
-                  variant="secondary"
-                  className="pointer-events-auto bg-[hsl(var(--status-operational))] hover:bg-[hsl(var(--status-operational))]/80 text-white border-0"
+                  variant="destructive"
+                  className="pointer-events-auto"
                   onClick={(e) => {
                     e.stopPropagation();
-                    onStatusReset();
+                    onEmergencyStop();
                   }}
                 >
-                  <Check className="w-4 h-4" />
+                  <Power className="w-4 h-4" />
                 </Button>
               </TooltipTrigger>
               <TooltipContent>
-                <p>Mark as Resolved</p>
+                <p>Emergency Stop</p>
               </TooltipContent>
             </Tooltip>
-          )}
-          
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                size="sm"
-                variant="destructive"
-                className="pointer-events-auto"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onEmergencyStop();
-                }}
-              >
-                <Power className="w-4 h-4" />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>
-              <p>Emergency Stop</p>
-            </TooltipContent>
-          </Tooltip>
-        </div>
+          </div>
+        )}
       </div>
     </TooltipProvider>
   );
