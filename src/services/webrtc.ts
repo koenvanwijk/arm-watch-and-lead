@@ -254,16 +254,24 @@ export class WebRTCStreamer {
       throw new Error('Peer connection not initialized');
     }
 
+    console.log('Creating offer for robot:', this.robotId);
+    console.log('Peer connection state:', this.peerConnection.connectionState);
+    console.log('Local stream tracks:', this.localStream?.getTracks().length);
+
     const offer = await this.peerConnection.createOffer();
     await this.peerConnection.setLocalDescription(offer);
     
-    // Send offer through Supabase signaling
+    console.log('Offer created and set as local description');
+    
+    // Send offer through signaling
     await this.sendSignalingMessage({
       type: 'offer',
       offer,
       robotId: this.robotId,
+      senderId: `robot-${this.robotId}`,
     });
 
+    console.log('Offer sent through signaling');
     return offer;
   }
 
@@ -326,6 +334,11 @@ export class WebRTCStreamer {
               break;
             case 'quality-request':
               await this.changeQuality(message.quality);
+              break;
+            case 'connection-request':
+              console.log('Received connection request from operator:', message.senderId);
+              // Start offering connection to this operator
+              await this.createOffer();
               break;
           }
           

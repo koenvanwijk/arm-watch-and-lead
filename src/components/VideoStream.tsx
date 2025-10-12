@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { AlertCircle, CheckCircle, XCircle, Power, Check, Radio, Wifi, WifiOff } from "lucide-react";
@@ -96,40 +96,8 @@ export const VideoStream = ({
     connection: "Stable"
   };
 
-  // Update video URL when prop changes
-  useEffect(() => {
-    setCurrentVideoUrl(videoUrl);
-  }, [videoUrl]);
-
-  // Initialize WebRTC if enabled
-  useEffect(() => {
-    if (useWebRTC && operatorId && !webrtcReceiver) {
-      initializeWebRTC();
-    } else if (!useWebRTC && webrtcReceiver) {
-      cleanupWebRTC();
-    }
-
-    return () => {
-      if (webrtcReceiver) {
-        cleanupWebRTC();
-      }
-    };
-  }, [useWebRTC, operatorId, id]);
-
-  // Handle focus changes for quality adaptation
-  useEffect(() => {
-    if (webrtcReceiver && connectionState === 'connected') {
-      if (isFocused) {
-        webrtcReceiver.requestFocus();
-        onFocus?.();
-      } else {
-        webrtcReceiver.releaseFocus();
-        onUnfocus?.();
-      }
-    }
-  }, [isFocused, webrtcReceiver, connectionState]);
-
-  const initializeWebRTC = async () => {
+  // WebRTC functions
+  const initializeWebRTC = useCallback(async () => {
     if (!operatorId) return;
 
     try {
@@ -159,9 +127,9 @@ export const VideoStream = ({
     } catch (error) {
       console.error('Failed to initialize WebRTC receiver:', error);
     }
-  };
+  }, [operatorId, id]);
 
-  const cleanupWebRTC = async () => {
+  const cleanupWebRTC = useCallback(async () => {
     if (webrtcReceiver) {
       await webrtcReceiver.cleanup();
       setWebrtcReceiver(null);
@@ -173,7 +141,47 @@ export const VideoStream = ({
         videoRef.current.srcObject = null;
       }
     }
-  };
+  }, [webrtcReceiver]);
+
+  // Update video URL when prop changes
+  useEffect(() => {
+    setCurrentVideoUrl(videoUrl);
+  }, [videoUrl]);
+
+  // Initialize WebRTC if enabled
+  useEffect(() => {
+    let mounted = true;
+    
+    const initWebRTC = async () => {
+      if (useWebRTC && operatorId && !webrtcReceiver && mounted) {
+        await initializeWebRTC();
+      } else if (!useWebRTC && webrtcReceiver && mounted) {
+        await cleanupWebRTC();
+      }
+    };
+
+    initWebRTC();
+
+    return () => {
+      mounted = false;
+      if (webrtcReceiver) {
+        cleanupWebRTC();
+      }
+    };
+  }, [useWebRTC, operatorId, id, webrtcReceiver, initializeWebRTC, cleanupWebRTC]);
+
+  // Handle focus changes for quality adaptation
+  useEffect(() => {
+    if (webrtcReceiver && connectionState === 'connected') {
+      if (isFocused) {
+        webrtcReceiver.requestFocus();
+        onFocus?.();
+      } else {
+        webrtcReceiver.releaseFocus();
+        onUnfocus?.();
+      }
+    }
+  }, [isFocused, webrtcReceiver, connectionState, onFocus, onUnfocus]);
 
   // Update timestamp every second to show live connection
   useEffect(() => {
